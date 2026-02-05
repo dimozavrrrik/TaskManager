@@ -83,7 +83,7 @@ TaskManager/
 
 1. Клонируйте репозиторий:
 ```bash
-git clone <repository-url>
+git clone git@github.com:dimozavrrrik/TaskManager.git
 cd TaskManager
 ```
 
