@@ -1,0 +1,194 @@
+@page "/tasks"
+@attribute [Authorize]
+@inject ITaskService TaskService
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+<PageTitle>Задачи - TaskManager</PageTitle>
+
+<div class="d-flex justify-space-between align-center mb-4">
+    <MudText Typo="Typo.h4">Задачи</MudText>
+    <MudButton Href="/tasks/create"
+               Variant="Variant.Filled"
+               Color="Color.Primary"
+               StartIcon="@Icons.Material.Filled.Add">
+        Создать задачу
+    </MudButton>
+</div>
+
+@if (_isLoading)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+}
+else
+{
+    <MudPaper Elevation="2">
+        <MudDataGrid T="TaskResponse"
+                     Items="@_tasks"
+                     Filterable="true"
+                     SortMode="SortMode.Multiple"
+                     QuickFilter="@_quickFilter"
+                     Hover="true"
+                     Dense="true">
+            <ToolBarContent>
+                <MudTextField @bind-Value="_searchString"
+                              Placeholder="Поиск задач"
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Filled.Search"
+                              IconSize="Size.Medium"
+                              Immediate="true"
+                              Class="mt-0" />
+                <MudSpacer />
+                <MudChipSet @bind-SelectedChip="_selectedStatusFilter" Filter="true" Mandatory="false">
+                    <MudChip Text="Все" Default="true" OnClick="@(() => FilterByStatus(null))">Все</MudChip>
+                    <MudChip Text="pending" OnClick="@(() => FilterByStatus("pending"))">Ожидают</MudChip>
+                    <MudChip Text="in_progress" OnClick="@(() => FilterByStatus("in_progress"))">В работе</MudChip>
+                    <MudChip Text="completed" OnClick="@(() => FilterByStatus("completed"))">Завершено</MudChip>
+                </MudChipSet>
+            </ToolBarContent>
+            <Columns>
+                <PropertyColumn Property="x => x.Title" Title="Название" />
+                <TemplateColumn Title="Статус" Sortable="true" SortBy="@(x => x.Status)">
+                    <CellTemplate>
+                        <MudChip Size="Size.Small" Color="@GetStatusColor(context.Item.Status)">
+                            @GetStatusText(context.Item.Status)
+                        </MudChip>
+                    </CellTemplate>
+                </TemplateColumn>
+                <TemplateColumn Title="Приоритет" Sortable="true" SortBy="@(x => x.Priority)">
+                    <CellTemplate>
+                        <MudChip Size="Size.Small" Color="@GetPriorityColor(context.Item.Priority)">
+                            @GetPriorityText(context.Item.Priority)
+                        </MudChip>
+                    </CellTemplate>
+                </TemplateColumn>
+                <TemplateColumn Title="Дедлайн" Sortable="true" SortBy="@(x => x.DueDate)">
+                    <CellTemplate>
+                        @if (!string.IsNullOrEmpty(context.Item.DueDate) && DateTime.TryParse(context.Item.DueDate, out var dueDate))
+                        {
+                            <span class="@(dueDate < DateTime.Now ? "text-danger" : "")">
+                                @dueDate.ToString("dd.MM.yyyy")
+                            </span>
+                        }
+                        else
+                        {
+                            <span class="text-muted">-</span>
+                        }
+                    </CellTemplate>
+                </TemplateColumn>
+                <PropertyColumn Property="x => x.CreatedAt" Title="Создано" Format="dd.MM.yyyy" />
+                <TemplateColumn Title="Действия" Sortable="false">
+                    <CellTemplate>
+                        <MudIconButton Icon="@Icons.Material.Filled.Visibility"
+                                       Size="Size.Small"
+                                       Color="Color.Primary"
+                                       OnClick="@(() => ViewTask(context.Item.Id))" />
+                    </CellTemplate>
+                </TemplateColumn>
+            </Columns>
+            <PagerContent>
+                <MudDataGridPager T="TaskResponse" />
+            </PagerContent>
+        </MudDataGrid>
+    </MudPaper>
+}
+
+@code {
+    private bool _isLoading = true;
+    private List<TaskResponse> _tasks = new();
+    private List<TaskResponse> _filteredTasks = new();
+    private string _searchString = string.Empty;
+    private string? _statusFilter = null;
+    private MudChip? _selectedStatusFilter;
+
+    private Func<TaskResponse, bool> _quickFilter => task =>
+    {
+        if (string.IsNullOrWhiteSpace(_searchString))
+            return true;
+
+        if (task.Title.Contains(_searchString, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        if (task.Description.Contains(_searchString, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        return false;
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadTasksAsync();
+    }
+
+    private async Task LoadTasksAsync()
+    {
+        try
+        {
+            _tasks = await TaskService.GetAllTasksAsync();
+            ApplyFilters();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Ошибка загрузки задач: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void FilterByStatus(string? status)
+    {
+        _statusFilter = status;
+        ApplyFilters();
+    }
+
+    private void ApplyFilters()
+    {
+        _filteredTasks = _tasks;
+
+        if (!string.IsNullOrEmpty(_statusFilter))
+        {
+            _filteredTasks = _filteredTasks.Where(t => t.Status == _statusFilter).ToList();
+        }
+    }
+
+    private void ViewTask(Guid taskId)
+    {
+        Navigation.NavigateTo($"/tasks/{taskId}");
+    }
+
+    private Color GetStatusColor(string status) => status.ToLower() switch
+    {
+        "pending" => Color.Warning,
+        "in_progress" => Color.Info,
+        "completed" => Color.Success,
+        "cancelled" => Color.Error,
+        _ => Color.Default
+    };
+
+    private string GetStatusText(string status) => status.ToLower() switch
+    {
+        "pending" => "Ожидает",
+        "in_progress" => "В работе",
+        "completed" => "Завершена",
+        "cancelled" => "Отменена",
+        _ => status
+    };
+
+    private Color GetPriorityColor(int priority) => priority switch
+    {
+        0 => Color.Success,    // low
+        1 => Color.Info,       // medium
+        2 => Color.Warning,    // high
+        _ => Color.Default
+    };
+
+    private string GetPriorityText(int priority) => priority switch
+    {
+        0 => "Низкий",
+        1 => "Средний",
+        2 => "Высокий",
+        _ => "Неизвестно"
+    };
+}

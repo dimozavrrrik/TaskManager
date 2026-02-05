@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>TaskManager</title>
+    <base href="/" />
+    <link href="css/app.css" rel="stylesheet" />
+    <link href="TaskManager.Client.styles.css" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap" rel="stylesheet" />
+    <link href="_content/MudBlazor/MudBlazor.min.css" rel="stylesheet" />
+    <link rel="icon" type="image/png" href="favicon.png" />
+    <link rel="manifest" href="manifest.json" />
+    <link rel="apple-touch-icon" sizes="512x512" href="icon-512.png" />
+    <link rel="apple-touch-icon" sizes="192x192" href="icon-192.png" />
+</head>
+
+<body>
+    <div id="app">
+        <div style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); text-align:center;">
+            <svg style="width:64px;height:64px;margin:auto;" viewBox="0 0 24 24">
+                <path fill="#594AE2" d="M12,4V2A10,10 0 0,0 2,12H4A8,8 0 0,1 12,4Z">
+                    <animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="1s" repeatCount="indefinite"/>
+                </path>
+            </svg>
+            <p style="margin-top:16px;color:#666;font-family:Roboto,sans-serif;">Загрузка TaskManager...</p>
+        </div>
+    </div>
+
+    <div id="blazor-error-ui">
+        Произошла непредвиденная ошибка.
+        <a href="" class="reload">Перезагрузить</a>
+        <a class="dismiss">🗙</a>
+    </div>
+
+    <script src="_framework/blazor.webassembly.js"></script>
+    <script src="_content/MudBlazor/MudBlazor.min.js"></script>
+    <script>navigator.serviceWorker.register('service-worker.js');</script>
+</body>
+
+</html>

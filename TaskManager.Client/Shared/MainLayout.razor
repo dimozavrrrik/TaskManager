@@ -1,0 +1,64 @@
+@inherits LayoutComponentBase
+
+<MudThemeProvider Theme="@_theme" />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<MudLayout>
+    <AuthorizeView>
+        <Authorized>
+            <MudAppBar Elevation="1">
+                <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@ToggleDrawer" />
+                <MudText Typo="Typo.h6">TaskManager</MudText>
+                <MudSpacer />
+                <LoginDisplay />
+            </MudAppBar>
+            <MudDrawer @bind-Open="@_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="2">
+                <NavMenu />
+            </MudDrawer>
+            <MudMainContent>
+                <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="my-4">
+                    @Body
+                </MudContainer>
+            </MudMainContent>
+        </Authorized>
+        <NotAuthorized>
+            <MudMainContent>
+                @Body
+            </MudMainContent>
+        </NotAuthorized>
+    </AuthorizeView>
+</MudLayout>
+
+@code {
+    private bool _drawerOpen = true;
+
+    private MudTheme _theme = new()
+    {
+        Palette = new PaletteLight()
+        {
+            Primary = "#594AE2",
+            Secondary = "#FF6B6B",
+            AppbarBackground = "#594AE2",
+            Success = "#51CF66",
+            Warning = "#FFA94D",
+            Error = "#FF6B6B",
+            Info = "#339AF0"
+        },
+        PaletteDark = new PaletteDark()
+        {
+            Primary = "#7C6CEA",
+            Secondary = "#FF8787",
+            AppbarBackground = "#1A1A2E",
+            Success = "#51CF66",
+            Warning = "#FFA94D",
+            Error = "#FF6B6B",
+            Info = "#339AF0"
+        }
+    };
+
+    private void ToggleDrawer()
+    {
+        _drawerOpen = !_drawerOpen;
+    }
+}

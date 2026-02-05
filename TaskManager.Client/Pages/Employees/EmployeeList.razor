@@ -1,0 +1,125 @@
+@page "/employees"
+@attribute [Authorize]
+@inject IEmployeeService EmployeeService
+@inject ISnackbar Snackbar
+
+<PageTitle>Сотрудники - TaskManager</PageTitle>
+
+<MudText Typo="Typo.h4" GutterBottom="true" Class="mb-4">
+    Сотрудники
+</MudText>
+
+@if (_isLoading)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+}
+else
+{
+    <MudPaper Elevation="2">
+        <MudDataGrid T="EmployeeResponse"
+                     Items="@_employees"
+                     Filterable="true"
+                     SortMode="SortMode.Multiple"
+                     QuickFilter="@_quickFilter"
+                     Hover="true"
+                     Dense="true">
+            <ToolBarContent>
+                <MudTextField @bind-Value="_searchString"
+                              Placeholder="Поиск сотрудников"
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Filled.Search"
+                              IconSize="Size.Medium"
+                              Immediate="true"
+                              Class="mt-0" />
+            </ToolBarContent>
+            <Columns>
+                <TemplateColumn Title="Сотрудник" Sortable="true" SortBy="@(x => x.Name)">
+                    <CellTemplate>
+                        <div class="d-flex align-center">
+                            <MudAvatar Color="Color.Primary" Size="Size.Small" Class="mr-3">
+                                @context.Item.Name.Substring(0, 1).ToUpper()
+                            </MudAvatar>
+                            <div>
+                                <MudText Typo="Typo.body1">@context.Item.Name</MudText>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                    @context.Item.Email
+                                </MudText>
+                            </div>
+                        </div>
+                    </CellTemplate>
+                </TemplateColumn>
+                <PropertyColumn Property="x => x.Department" Title="Отдел" />
+                <PropertyColumn Property="x => x.Position" Title="Должность" />
+                <TemplateColumn Title="Дата регистрации" Sortable="true" SortBy="@(x => x.CreatedAt)">
+                    <CellTemplate>
+                        @context.Item.CreatedAt.ToString("dd.MM.yyyy")
+                    </CellTemplate>
+                </TemplateColumn>
+                <TemplateColumn Title="Действия" Sortable="false">
+                    <CellTemplate>
+                        <MudIconButton Icon="@Icons.Material.Filled.Task"
+                                       Size="Size.Small"
+                                       Color="Color.Primary"
+                                       Title="Задачи сотрудника"
+                                       OnClick="@(() => ViewEmployeeTasks(context.Item.Id))" />
+                    </CellTemplate>
+                </TemplateColumn>
+            </Columns>
+            <PagerContent>
+                <MudDataGridPager T="EmployeeResponse" />
+            </PagerContent>
+        </MudDataGrid>
+    </MudPaper>
+}
+
+@code {
+    private bool _isLoading = true;
+    private List<EmployeeResponse> _employees = new();
+    private string _searchString = string.Empty;
+
+    private Func<EmployeeResponse, bool> _quickFilter => employee =>
+    {
+        if (string.IsNullOrWhiteSpace(_searchString))
+            return true;
+
+        if (employee.Name.Contains(_searchString, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        if (employee.Email.Contains(_searchString, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        if (employee.Department.Contains(_searchString, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        if (employee.Position.Contains(_searchString, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        return false;
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadEmployeesAsync();
+    }
+
+    private async Task LoadEmployeesAsync()
+    {
+        try
+        {
+            _employees = await EmployeeService.GetAllEmployeesAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Ошибка загрузки сотрудников: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void ViewEmployeeTasks(Guid employeeId)
+    {
+        Snackbar.Add("Функция просмотра задач сотрудника будет реализована позже", Severity.Info);
+    }
+}

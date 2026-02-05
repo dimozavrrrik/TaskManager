@@ -1,0 +1,50 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+*.cache
+*.dll
+*.exe
+*.pdb
+.vs/
+*.log
+*.tmp
+
+# Blazor
+wwwroot/service-worker-assets.js
+
+# Go
+*.exe
+*.test
+*.out
+vendor/
+*.log
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Docker
+.dockerignore
+
+# Environment variables
+.env
+*.pem
+*.key
+*.crt
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# Node modules (if any)
+node_modules/
+nul

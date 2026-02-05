@@ -1,0 +1,233 @@
+@page "/tasks/{TaskId:guid}"
+@attribute [Authorize]
+@inject ITaskService TaskService
+@inject IEmployeeService EmployeeService
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<PageTitle>@(_task?.Title ?? "Задача") - TaskManager</PageTitle>
+
+@if (_isLoading)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+}
+else if (_task == null)
+{
+    <MudAlert Severity="Severity.Error">Задача не найдена</MudAlert>
+}
+else
+{
+    <div class="d-flex justify-space-between align-center mb-4">
+        <MudText Typo="Typo.h4">@_task.Title</MudText>
+        <div class="d-flex gap-2">
+            <MudButton Variant="Variant.Outlined"
+                       Color="Color.Secondary"
+                       StartIcon="@Icons.Material.Filled.ArrowBack"
+                       OnClick="@GoBack">
+                Назад
+            </MudButton>
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Error"
+                       StartIcon="@Icons.Material.Filled.Archive"
+                       OnClick="@ArchiveTaskAsync">
+                Архивировать
+            </MudButton>
+        </div>
+    </div>
+
+    <MudGrid>
+        <MudItem xs="12" md="8">
+            <MudPaper Elevation="2" Class="pa-4 mb-4">
+                <MudText Typo="Typo.h6" GutterBottom="true">Описание</MudText>
+                <MudText Typo="Typo.body1">@_task.Description</MudText>
+            </MudPaper>
+
+            <MudPaper Elevation="2" Class="pa-4">
+                <MudText Typo="Typo.h6" GutterBottom="true">Участники</MudText>
+
+                @if (_participants.Any())
+                {
+                    <MudList>
+                        @foreach (var participant in _participants)
+                        {
+                            <MudListItem>
+                                <div class="d-flex align-center justify-space-between">
+                                    <div class="d-flex align-center">
+                                        <MudAvatar Color="Color.Primary" Size="Size.Small" Class="mr-3">
+                                            @participant.Employee?.Name?.Substring(0, 1).ToUpper()
+                                        </MudAvatar>
+                                        <div>
+                                            <MudText Typo="Typo.body1">@participant.Employee?.Name</MudText>
+                                            <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                                @participant.Employee?.Position - @participant.Employee?.Department
+                                            </MudText>
+                                        </div>
+                                    </div>
+                                    <MudChip Size="Size.Small" Color="Color.Primary">
+                                        @participant.Role
+                                    </MudChip>
+                                </div>
+                            </MudListItem>
+                        }
+                    </MudList>
+                }
+                else
+                {
+                    <MudAlert Severity="Severity.Info" Class="mb-2">Нет участников</MudAlert>
+                }
+
+                <MudButton Variant="Variant.Text"
+                           Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Add"
+                           OnClick="@OpenAddParticipantDialog"
+                           Class="mt-2">
+                    Добавить участника
+                </MudButton>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" md="4">
+            <MudPaper Elevation="2" Class="pa-4 mb-4">
+                <MudText Typo="Typo.h6" GutterBottom="true">Информация</MudText>
+
+                <div class="mb-3">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Статус</MudText>
+                    <MudSelect @bind-Value="_task.Status"
+                               Variant="Variant.Outlined"
+                               Dense="true"
+                               Margin="Margin.Dense"
+                               OnClose="@UpdateStatusAsync">
+                        <MudSelectItem Value="@("pending")">Ожидает</MudSelectItem>
+                        <MudSelectItem Value="@("in_progress")">В работе</MudSelectItem>
+                        <MudSelectItem Value="@("completed")">Завершена</MudSelectItem>
+                        <MudSelectItem Value="@("cancelled")">Отменена</MudSelectItem>
+                    </MudSelect>
+                </div>
+
+                <div class="mb-3">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Приоритет</MudText>
+                    <MudChip Color="@GetPriorityColor(_task.Priority)" Class="mt-1">
+                        @GetPriorityText(_task.Priority)
+                    </MudChip>
+                </div>
+
+                @if (!string.IsNullOrEmpty(_task.DueDate) && DateTime.TryParse(_task.DueDate, out var dueDate))
+                {
+                    <div class="mb-3">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Дедлайн</MudText>
+                        <MudText Typo="Typo.body2" Class="@(dueDate < DateTime.Now ? "text-danger" : "")">
+                            @dueDate.ToString("dd MMMM yyyy")
+                        </MudText>
+                    </div>
+                }
+
+                <div class="mb-3">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Создано</MudText>
+                    <MudText Typo="Typo.body2">@_task.CreatedAt.ToString("dd MMMM yyyy, HH:mm")</MudText>
+                </div>
+
+                <div>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Обновлено</MudText>
+                    <MudText Typo="Typo.body2">@_task.UpdatedAt.ToString("dd MMMM yyyy, HH:mm")</MudText>
+                </div>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+}
+
+@code {
+    [Parameter]
+    public Guid TaskId { get; set; }
+
+    private TaskResponse? _task;
+    private List<TaskParticipantResponse> _participants = new();
+    private bool _isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadTaskAsync();
+    }
+
+    private async Task LoadTaskAsync()
+    {
+        try
+        {
+            _task = await TaskService.GetTaskByIdAsync(TaskId);
+            _participants = await TaskService.GetTaskParticipantsAsync(TaskId);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Ошибка загрузки задачи: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task UpdateStatusAsync()
+    {
+        if (_task == null) return;
+
+        try
+        {
+            var request = new UpdateTaskStatusRequest { Status = _task.Status };
+            await TaskService.UpdateTaskStatusAsync(TaskId, request);
+            Snackbar.Add("Статус обновлен", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Ошибка обновления статуса: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task ArchiveTaskAsync()
+    {
+        var result = await DialogService.ShowMessageBox(
+            "Подтверждение",
+            "Вы уверены, что хотите архивировать эту задачу?",
+            yesText: "Да", cancelText: "Отмена");
+
+        if (result == true)
+        {
+            try
+            {
+                await TaskService.ArchiveTaskAsync(TaskId);
+                Snackbar.Add("Задача архивирована", Severity.Success);
+                Navigation.NavigateTo("/tasks");
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Ошибка архивирования: {ex.Message}", Severity.Error);
+            }
+        }
+    }
+
+    private async Task OpenAddParticipantDialog()
+    {
+        // For simplicity, we'll skip the dialog implementation for now
+        Snackbar.Add("Функция добавления участников будет реализована позже", Severity.Info);
+    }
+
+    private void GoBack()
+    {
+        Navigation.NavigateTo("/tasks");
+    }
+
+    private Color GetPriorityColor(int priority) => priority switch
+    {
+        0 => Color.Success,    // low
+        1 => Color.Info,       // medium
+        2 => Color.Warning,    // high
+        _ => Color.Default
+    };
+
+    private string GetPriorityText(int priority) => priority switch
+    {
+        0 => "Низкий",
+        1 => "Средний",
+        2 => "Высокий",
+        _ => "Неизвестно"
+    };
+}

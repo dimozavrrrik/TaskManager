@@ -1,0 +1,182 @@
+@page "/"
+@attribute [Authorize]
+@inject ITaskService TaskService
+@inject IAuthService AuthService
+@inject NavigationManager Navigation
+
+<PageTitle>Главная - TaskManager</PageTitle>
+
+<MudText Typo="Typo.h4" GutterBottom="true" Class="page-header">
+    Добро пожаловать в TaskManager
+</MudText>
+
+@if (_isLoading)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+}
+else
+{
+    <MudGrid>
+        <MudItem xs="12" sm="6" md="3">
+            <MudPaper Elevation="2" Class="stat-card">
+                <MudText Typo="Typo.h3" Class="stat-value" Color="Color.Primary">
+                    @_totalTasks
+                </MudText>
+                <MudText Typo="Typo.body2" Class="stat-label">
+                    Всего задач
+                </MudText>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="3">
+            <MudPaper Elevation="2" Class="stat-card">
+                <MudText Typo="Typo.h3" Class="stat-value" Color="Color.Warning">
+                    @_pendingTasks
+                </MudText>
+                <MudText Typo="Typo.body2" Class="stat-label">
+                    Ожидают
+                </MudText>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="3">
+            <MudPaper Elevation="2" Class="stat-card">
+                <MudText Typo="Typo.h3" Class="stat-value" Color="Color.Info">
+                    @_inProgressTasks
+                </MudText>
+                <MudText Typo="Typo.body2" Class="stat-label">
+                    В работе
+                </MudText>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="3">
+            <MudPaper Elevation="2" Class="stat-card">
+                <MudText Typo="Typo.h3" Class="stat-value" Color="Color.Success">
+                    @_completedTasks
+                </MudText>
+                <MudText Typo="Typo.body2" Class="stat-label">
+                    Завершено
+                </MudText>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+
+    <MudPaper Elevation="2" Class="mt-6 pa-4">
+        <MudText Typo="Typo.h6" GutterBottom="true">
+            Последние задачи
+        </MudText>
+
+        @if (_recentTasks.Any())
+        {
+            <MudList>
+                @foreach (var task in _recentTasks)
+                {
+                    <MudListItem OnClick="@(() => NavigateToTask(task.Id))">
+                        <div class="d-flex align-center justify-space-between" style="width: 100%;">
+                            <div>
+                                <MudText Typo="Typo.body1">@task.Title</MudText>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                    Создано: @task.CreatedAt.ToString("dd.MM.yyyy HH:mm")
+                                </MudText>
+                            </div>
+                            <div class="d-flex align-center gap-2">
+                                <MudChip Size="Size.Small" Color="@GetPriorityColor(task.Priority)">
+                                    @GetPriorityText(task.Priority)
+                                </MudChip>
+                                <MudChip Size="Size.Small" Color="@GetStatusColor(task.Status)">
+                                    @GetStatusText(task.Status)
+                                </MudChip>
+                            </div>
+                        </div>
+                    </MudListItem>
+                    <MudDivider />
+                }
+            </MudList>
+
+            <MudButton Href="/tasks" Variant="Variant.Text" Color="Color.Primary" Class="mt-2">
+                Посмотреть все задачи
+            </MudButton>
+        }
+        else
+        {
+            <MudAlert Severity="Severity.Info">
+                Нет задач. <MudLink Href="/tasks/create">Создайте первую задачу</MudLink>
+            </MudAlert>
+        }
+    </MudPaper>
+}
+
+@code {
+    private bool _isLoading = true;
+    private List<TaskResponse> _recentTasks = new();
+    private int _totalTasks;
+    private int _pendingTasks;
+    private int _inProgressTasks;
+    private int _completedTasks;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        try
+        {
+            var tasks = await TaskService.GetAllTasksAsync();
+            _totalTasks = tasks.Count;
+            _pendingTasks = tasks.Count(t => t.Status == "pending");
+            _inProgressTasks = tasks.Count(t => t.Status == "in_progress");
+            _completedTasks = tasks.Count(t => t.Status == "completed");
+            _recentTasks = tasks.OrderByDescending(t => t.CreatedAt).Take(5).ToList();
+        }
+        catch (Exception)
+        {
+            // Handle error
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void NavigateToTask(Guid taskId)
+    {
+        Navigation.NavigateTo($"/tasks/{taskId}");
+    }
+
+    private Color GetStatusColor(string status) => status.ToLower() switch
+    {
+        "pending" => Color.Warning,
+        "in_progress" => Color.Info,
+        "completed" => Color.Success,
+        "cancelled" => Color.Error,
+        _ => Color.Default
+    };
+
+    private string GetStatusText(string status) => status.ToLower() switch
+    {
+        "pending" => "Ожидает",
+        "in_progress" => "В работе",
+        "completed" => "Завершена",
+        "cancelled" => "Отменена",
+        _ => status
+    };
+
+    private Color GetPriorityColor(int priority) => priority switch
+    {
+        0 => Color.Success,    // low
+        1 => Color.Info,       // medium
+        2 => Color.Warning,    // high
+        _ => Color.Default
+    };
+
+    private string GetPriorityText(int priority) => priority switch
+    {
+        0 => "Низкий",
+        1 => "Средний",
+        2 => "Высокий",
+        _ => "Неизвестно"
+    };
+}

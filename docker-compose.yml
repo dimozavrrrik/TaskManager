@@ -1,0 +1,104 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: taskmanager_postgres
+    environment:
+      POSTGRES_DB: taskmanager
+      POSTGRES_USER: taskmanager
+      POSTGRES_PASSWORD: taskmanager_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./internal/database/migrations/001_init_schema.up.sql:/docker-entrypoint-initdb.d/001_init_schema.up.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U taskmanager"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - taskmanager_network
+
+  redis:
+    image: redis:7-alpine
+    container_name: taskmanager_redis
+    command: redis-server --requirepass redis_password --maxmemory 256mb --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "redis_password", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - taskmanager_network
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: taskmanager_api
+    environment:
+      SERVER_ADDRESS: ":8080"
+      DATABASE_URL: "postgres://taskmanager:taskmanager_password@postgres:5432/taskmanager?sslmode=disable"
+      LOG_LEVEL: "info"
+      ENVIRONMENT: "production"
+      DB_MAX_OPEN_CONNS: 25
+      DB_MAX_IDLE_CONNS: 5
+      DB_MAX_IDLE_TIME: "15m"
+      JWT_SECRET: "${JWT_SECRET}"
+      JWT_ACCESS_EXPIRY_MIN: 15
+      JWT_REFRESH_EXPIRY_DAYS: 7
+      REDIS_URL: "redis://:redis_password@redis:6379/0"
+      FRONTEND_URL: "http://localhost:8081"
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - taskmanager_network
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./TaskManager.Client
+      dockerfile: Dockerfile
+    container_name: taskmanager_frontend
+    ports:
+      - "8081:80"
+    depends_on:
+      - api
+    networks:
+      - taskmanager_network
+    restart: unless-stopped
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: taskmanager_pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@taskmanager.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+    networks:
+      - taskmanager_network
+    profiles:
+      - dev
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  taskmanager_network:
+    driver: bridge

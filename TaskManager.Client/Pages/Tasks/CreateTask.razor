@@ -1,0 +1,108 @@
+@page "/tasks/create"
+@attribute [Authorize]
+@inject ITaskService TaskService
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+<PageTitle>Создать задачу - TaskManager</PageTitle>
+
+<MudText Typo="Typo.h4" GutterBottom="true" Class="mb-4">
+    Создать новую задачу
+</MudText>
+
+<MudPaper Elevation="2" Class="pa-6">
+    <EditForm Model="@_createTaskModel" OnValidSubmit="@HandleCreateTaskAsync">
+        <DataAnnotationsValidator />
+
+        <MudTextField @bind-Value="_createTaskModel.Title"
+                      Label="Название"
+                      Variant="Variant.Outlined"
+                      For="@(() => _createTaskModel.Title)"
+                      Margin="Margin.Dense"
+                      Class="mb-4" />
+
+        <MudTextField @bind-Value="_createTaskModel.Description"
+                      Label="Описание"
+                      Variant="Variant.Outlined"
+                      For="@(() => _createTaskModel.Description)"
+                      Lines="5"
+                      Margin="Margin.Dense"
+                      Class="mb-4" />
+
+        <MudSelect @bind-Value="_createTaskModel.Priority"
+                   Label="Приоритет"
+                   Variant="Variant.Outlined"
+                   For="@(() => _createTaskModel.Priority)"
+                   Margin="Margin.Dense"
+                   Class="mb-4">
+            <MudSelectItem Value="0">Низкий</MudSelectItem>
+            <MudSelectItem Value="1">Средний</MudSelectItem>
+            <MudSelectItem Value="2">Высокий</MudSelectItem>
+        </MudSelect>
+
+        <MudDatePicker @bind-Date="_deadline"
+                       Label="Дедлайн (опционально)"
+                       Variant="Variant.Outlined"
+                       Margin="Margin.Dense"
+                       Class="mb-4" />
+
+        <div class="d-flex gap-2 mt-4">
+            <MudButton ButtonType="ButtonType.Submit"
+                       Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       Disabled="@_isLoading">
+                @if (_isLoading)
+                {
+                    <MudProgressCircular Class="mr-2" Size="Size.Small" Indeterminate="true" />
+                    <span>Создание...</span>
+                }
+                else
+                {
+                    <span>Создать задачу</span>
+                }
+            </MudButton>
+            <MudButton Variant="Variant.Text"
+                       Color="Color.Secondary"
+                       OnClick="@Cancel">
+                Отмена
+            </MudButton>
+        </div>
+    </EditForm>
+</MudPaper>
+
+@code {
+    private CreateTaskRequest _createTaskModel = new() { Priority = 1 }; // 1 = medium
+    private DateTime? _deadline;
+    private bool _isLoading = false;
+
+    private async Task HandleCreateTaskAsync()
+    {
+        _isLoading = true;
+
+        try
+        {
+            // Конвертируем DateTime? в string формата ISO 8601
+            if (_deadline.HasValue)
+            {
+                _createTaskModel.DueDate = _deadline.Value.ToString("yyyy-MM-dd");
+            }
+
+            var createdTask = await TaskService.CreateTaskAsync(_createTaskModel);
+            Snackbar.Add("Задача успешно создана!", Severity.Success);
+            Navigation.NavigateTo($"/tasks/{createdTask.Id}");
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Ошибка создания задачи: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void Cancel()
+    {
+        Navigation.NavigateTo("/tasks");
+    }
+}
